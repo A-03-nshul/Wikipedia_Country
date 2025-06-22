@@ -49,6 +49,13 @@ def extract_headings(html_content):
     """Extract all headings (H1-H6) from HTML content"""
     soup = BeautifulSoup(html_content, 'html.parser')
     
+    # Remove table of contents and navigation elements first
+    for element in soup.find_all(['div', 'nav', 'aside']):
+        if element.get('id') in ['toc', 'mw-toc', 'mw-navigation', 'mw-panel', 'mw-head', 'mw-footer']:
+            element.decompose()
+        elif 'toc' in element.get('class', []) or 'navigation' in element.get('class', []):
+            element.decompose()
+    
     # Find all headings
     headings = []
     for heading in soup.find_all(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']):
@@ -73,8 +80,12 @@ def extract_headings(html_content):
         text = heading.get_text(strip=True)
         if text:  # Only include non-empty headings
             # Skip common navigation and TOC headings
-            skip_texts = ['Contents', 'Navigation menu', 'Tools', 'Languages', 'Print/export']
+            skip_texts = ['Contents', 'Navigation menu', 'Tools', 'Languages', 'Print/export', 'Jump to navigation', 'Jump to search']
             if any(skip_text.lower() in text.lower() for skip_text in skip_texts):
+                continue
+                
+            # Skip very short headings
+            if len(text.strip()) < 2:
                 continue
                 
             level = int(heading.name[1])  # Extract number from h1, h2, etc.
@@ -100,7 +111,12 @@ def generate_markdown_outline(headings, country_name):
             continue
             
         # Skip "Contents" heading since we already have it
-        if text.lower() == "contents":
+        if text.lower() in ["contents", "table of contents", "toc"]:
+            continue
+            
+        # Skip navigation and utility headings
+        skip_texts = ["navigation", "tools", "languages", "print/export", "jump to navigation", "jump to search"]
+        if any(skip_text in text.lower() for skip_text in skip_texts):
             continue
             
         # Add appropriate number of # symbols
