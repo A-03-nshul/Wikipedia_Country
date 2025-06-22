@@ -56,9 +56,27 @@ def extract_headings(html_content):
         if heading.get('id') in ['mw-content-text', 'mw-navigation', 'mw-page-base']:
             continue
             
+        # Skip navigation and table of contents elements
+        if heading.get('id') in ['toc', 'mw-toc-heading']:
+            continue
+            
+        # Skip headings that are part of navigation or sidebars
+        parent = heading.parent
+        while parent:
+            if parent.get('id') in ['mw-navigation', 'mw-panel', 'mw-head', 'mw-footer']:
+                continue
+            if 'navigation' in parent.get('class', []) or 'sidebar' in parent.get('class', []):
+                continue
+            parent = parent.parent
+            
         # Get the heading text
         text = heading.get_text(strip=True)
         if text:  # Only include non-empty headings
+            # Skip common navigation and TOC headings
+            skip_texts = ['Contents', 'Navigation menu', 'Tools', 'Languages', 'Print/export']
+            if any(skip_text.lower() in text.lower() for skip_text in skip_texts):
+                continue
+                
             level = int(heading.name[1])  # Extract number from h1, h2, etc.
             headings.append((level, text))
     
@@ -67,7 +85,7 @@ def extract_headings(html_content):
 def generate_markdown_outline(headings, country_name):
     """Generate Markdown outline from headings"""
     if not headings:
-        return f"# {country_name}\n\nNo headings found on the Wikipedia page."
+        return f"## Contents\n\n# {country_name}\n\nNo headings found on the Wikipedia page."
     
     outline = "## Contents\n\n"
     outline += f"# {country_name}\n\n"
@@ -75,6 +93,14 @@ def generate_markdown_outline(headings, country_name):
     for level, text in headings:
         # Skip the main title if it's already the country name
         if level == 1 and text.lower() == country_name.lower():
+            continue
+            
+        # Skip empty or very short headings
+        if len(text.strip()) < 2:
+            continue
+            
+        # Skip "Contents" heading since we already have it
+        if text.lower() == "contents":
             continue
             
         # Add appropriate number of # symbols
